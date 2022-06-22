@@ -2,7 +2,11 @@
 param (
     [Parameter()]
     [string]
-    $fileName
+    $fileName,
+
+    [Parameter()]
+    [string]
+    $msiFile
 )
 
 $program32 = "${env:ProgramFiles(x86)}\IIS Express"
@@ -110,14 +114,30 @@ function PatchConfigFile([string]$source) {
     }
 }
 
+if ($msiFile) {
+    $tempPath = [System.IO.Path]::GetTempPath()
+    $tempDirName = 'IISCORS-{0:x}' -f (Get-Random)
+    $tempDirPath = Join-Path $tempPath $tempDirName
+    Start-Process msiexec "/a `"$msiFile`" /qn TARGETDIR=`"$tempDirPath`"" -Wait
+    $schemaSource = Join-Path $tempDirPath 'inetsrv'
+    $moduleSource = $tempDirPath
+} else {
+    $schemaSource = ${env:windir} + $source64
+    $moduleSource = ${env:windir}
+}
+
 if ($fileName) {
     Write-Host "Configure $fileName."
     PatchConfigFile($fileName)
 } else {
     Write-Host 'Configure all steps and default config file.'
-    AddSchemaFiles(${env:windir} + $source64)
-    AddModuleFiles(${env:windir})
+    AddSchemaFiles($schemaSource)
+    AddModuleFiles($moduleSource)
     PatchConfigFile([Environment]::GetFolderPath("MyDocuments") + "\IISExpress\config\applicationHost.config")
+}
+
+if ($msiFile) {
+    Remove-Item $tempDirPath -Recurse
 }
 
 Write-Host 'All done.'
