@@ -8,17 +8,17 @@ param (
 $program32 = "${env:ProgramFiles(x86)}\IIS Express"
 $program64 = "${env:ProgramFiles}\IIS Express"
 
-$source32 = "${env:windir}\SysWOW64\inetsrv"
-$source64 = "${env:windir}\System32\inetsrv"
+$source32 = '\SysWOW64\inetsrv'
+$source64 = '\System32\inetsrv'
 
 $schema = '\config\schema\cors_schema.xml'
 $module = '\iiscors.dll'
 
-function AddSchemaFiles {
+function AddSchemaFiles([string]$sourceDir) {
 
     $schema32 = $program32 + $schema
     $schema64 = $program64 + $schema
-    $source = $source64 + $schema
+    $source = $sourceDir + $schema
     if (Test-Path $source) {
         Copy-Item $source -Destination $schema32
         Write-Host 'Added schema 32 bit.'
@@ -30,12 +30,12 @@ function AddSchemaFiles {
     }
 }
 
-function AddModuleFiles {
+function AddModuleFiles([string]$sourceDir) {
     $module32 = $program32 + $module
     $module64 = $program64 + $module
 
-    $sourceModule32 = $source32 + $module
-    $sourceModule64 = $source64 + $module
+    $sourceModule32 = $sourceDir + $source32 + $module
+    $sourceModule64 = $sourceDir + $source64 + $module
 
     if (Test-Path $sourceModule32) {
         Copy-Item $sourceModule32 -Destination $module32
@@ -115,8 +115,8 @@ if ($fileName) {
     PatchConfigFile($fileName)
 } else {
     Write-Host 'Configure all steps and default config file.'
-    AddSchemaFiles
-    AddModuleFiles
+    AddSchemaFiles(${env:windir} + $source64)
+    AddModuleFiles(${env:windir})
     PatchConfigFile([Environment]::GetFolderPath("MyDocuments") + "\IISExpress\config\applicationHost.config")
 }
 
