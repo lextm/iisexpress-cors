@@ -2,23 +2,27 @@
 param (
     [Parameter()]
     [string]
-    $fileName
+    $fileName,
+
+    [Parameter()]
+    [string]
+    $msiFile
 )
 
 $program32 = "${env:ProgramFiles(x86)}\IIS Express"
 $program64 = "${env:ProgramFiles}\IIS Express"
 
-$source32 = "${env:windir}\SysWOW64\inetsrv"
-$source64 = "${env:windir}\System32\inetsrv"
+$source32 = '\SysWOW64\inetsrv'
+$source64 = '\System32\inetsrv'
 
 $schema = '\config\schema\cors_schema.xml'
 $module = '\iiscors.dll'
 
-function AddSchemaFiles {
+function AddSchemaFiles([string]$sourceDir) {
 
     $schema32 = $program32 + $schema
     $schema64 = $program64 + $schema
-    $source = $source64 + $schema
+    $source = $sourceDir + $schema
     if (Test-Path $source) {
         Copy-Item $source -Destination $schema32
         Write-Host 'Added schema 32 bit.'
@@ -30,12 +34,12 @@ function AddSchemaFiles {
     }
 }
 
-function AddModuleFiles {
+function AddModuleFiles([string]$sourceDir) {
     $module32 = $program32 + $module
     $module64 = $program64 + $module
 
-    $sourceModule32 = $source32 + $module
-    $sourceModule64 = $source64 + $module
+    $sourceModule32 = $sourceDir + $source32 + $module
+    $sourceModule64 = $sourceDir + $source64 + $module
 
     if (Test-Path $sourceModule32) {
         Copy-Item $sourceModule32 -Destination $module32
@@ -110,14 +114,30 @@ function PatchConfigFile([string]$source) {
     }
 }
 
+if ($msiFile) {
+    $tempPath = [System.IO.Path]::GetTempPath()
+    $tempDirName = 'IISCORS-{0:x}' -f (Get-Random)
+    $tempDirPath = Join-Path $tempPath $tempDirName
+    Start-Process msiexec "/a `"$msiFile`" /qn TARGETDIR=`"$tempDirPath`"" -Wait
+    $schemaSource = Join-Path $tempDirPath 'inetsrv'
+    $moduleSource = $tempDirPath
+} else {
+    $schemaSource = ${env:windir} + $source64
+    $moduleSource = ${env:windir}
+}
+
 if ($fileName) {
     Write-Host "Configure $fileName."
     PatchConfigFile($fileName)
 } else {
     Write-Host 'Configure all steps and default config file.'
-    AddSchemaFiles
-    AddModuleFiles
+    AddSchemaFiles($schemaSource)
+    AddModuleFiles($moduleSource)
     PatchConfigFile([Environment]::GetFolderPath("MyDocuments") + "\IISExpress\config\applicationHost.config")
+}
+
+if ($msiFile) {
+    Remove-Item $tempDirPath -Recurse
 }
 
 Write-Host 'All done.'

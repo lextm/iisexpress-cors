@@ -2,10 +2,9 @@
 
 ## Install
 
-1. [Install IIS](https://docs.microsoft.com/en-us/iis/install/installing-iis-7/installing-iis-on-windows-vista-and-windows-7).
-1. Install [Microsoft CORS Module for IIS](https://www.iis.net/downloads/microsoft/iis-cors-module).
 1. Install [IIS Express](https://docs.microsoft.com/en-us/iis/extensions/introduction-to-iis-express/iis-express-overview#installing-iis-express).
-1. Run `install.ps1` to install CORS module to IIS Express.
+1. Download [Microsoft CORS Module for IIS](https://www.iis.net/downloads/microsoft/iis-cors-module) installer.
+1. Run `install.ps1 -msiFile IISCORS_amd64.msi` to install CORS module to IIS Express.
 
 ## Uninstall
 1. Run `uninstall.ps1` to uninstall CORS module from IIS Express.
