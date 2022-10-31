@@ -14,7 +14,7 @@
    ```
    * In PowerShell console   
    ``` powershell
-   install.ps1 -msiFile IISCORS_amd64.msi
+   .\install.ps1 -msiFile IISCORS_amd64.msi
    ```
 The configuration is exactly the same as IIS, and just make sure you are editing the right files,
 
