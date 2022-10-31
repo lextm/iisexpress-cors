@@ -110,11 +110,15 @@ function PatchConfigFile([string]$source) {
             }
         }
     } else {
-        Write-Host 'Cannot find config file.'
+        Write-Warning 'Cannot find config file.'
     }
 }
 
 if ($msiFile) {
+    if (!(Test-Path $msiFile)) {
+        Write-Error "Çannot find MSI package $msiFile. Exit."
+        exit 1
+    }
     $tempPath = [System.IO.Path]::GetTempPath()
     $tempDirName = 'IISCORS-{0:x}' -f (Get-Random)
     $tempDirPath = Join-Path $tempPath $tempDirName
