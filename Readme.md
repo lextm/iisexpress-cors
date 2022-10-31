@@ -7,6 +7,10 @@
 1. Run `install.ps1 -msiFile IISCORS_amd64.msi` to install CORS module to IIS Express.
    > If the CORS module for IIS has been installed on this same machine in advance, then `-msiFile` switch can be omitted.
 
+The configuration is exactly the same as IIS, and just make sure you are editing the right files,
+
+https://learn.microsoft.com/en-us/iis/extensions/cors-module/cors-module-configuration-reference
+
 ## Uninstall
 1. Run `uninstall.ps1` to uninstall CORS module from IIS Express.
 
