@@ -7,6 +7,8 @@
 1. Run the proper command to install CORS module to IIS Express,
 
    > If the CORS module for IIS has been installed on this same machine in advance, then `-msiFile` switch can be omitted.
+   > 
+   > For VS 2015 and above, you must use `-fileName` switch to guide the script and modify the correct `applicationHost.config` file for your Visual Studio solution file. To learn more on how to locate the correct config file, you can [read this article](https://docs.jexusmanager.com/getting-started/features.html#add-iis-express-from-visual-studio-2015-2017-2019-solution-file).
 
    * At command prompt
    ``` cmd
