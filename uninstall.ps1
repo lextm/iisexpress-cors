@@ -12,6 +12,9 @@ $program64 = "${env:ProgramFiles}\IIS Express"
 
 $schema = '\config\schema\cors_schema.xml'
 $module = '\iiscors.dll'
+$sectionName = 'cors'
+$globalModuleName = 'CorsModule'
+
 function RemoveSchemaFiles {
     $schema32 = $program32 + $schema
     $schema64 = $program64 + $schema
@@ -43,21 +46,21 @@ function RemoveModuleFiles {
 function UnpatchConfigFile([string]$source) {
     if (Test-Path $source) {
         [xml]$xmlDoc = Get-Content $source
-        $existing = $xmlDoc.SelectSingleNode('/configuration/configSections/sectionGroup[@name="system.webServer"]/section[@name="cors"]')
+        $existing = $xmlDoc.SelectSingleNode("/configuration/configSections/sectionGroup[@name=`"system.webServer`"]/section[@name=`"$sectionName`"]")
         if ($existing) {
             $parent = $xmlDoc.SelectSingleNode('/configuration/configSections/sectionGroup[@name="system.webServer"]')
             if ($parent) {
                 $parent.RemoveChild($existing) | Out-Null
                 $xmlDoc.Save($source)
-                Write-Host 'Removed section cors.'
+                Write-Host "Removed section $sectionName."
             } else {
                 Write-Host 'Invalid config file.'
             }
         } else {
-            Write-Host 'Section cors not registered.'
+            Write-Host "Section $sectionName not registered."
         }
 
-        $global = $xmlDoc.SelectSingleNode('/configuration/system.webServer/globalModules/add[@name="CorsModule"]')
+        $global = $xmlDoc.SelectSingleNode("/configuration/system.webServer/globalModules/add[@name=`"$globalModuleName`"]")
         if ($global) {
             $parent = $xmlDoc.SelectSingleNode('/configuration/system.webServer/globalModules')
             if ($parent) {
@@ -71,7 +74,7 @@ function UnpatchConfigFile([string]$source) {
             Write-Host 'Global module not registered.'
         }
 
-        $module = $xmlDoc.SelectSingleNode('/configuration/location[@path=""]/system.webServer/modules/add[@name="CorsModule"]')
+        $module = $xmlDoc.SelectSingleNode("/configuration/location[@path=`"`"]/system.webServer/modules/add[@name=`"$globalModuleName`"]")
         if ($module) {
             $parent = $xmlDoc.SelectSingleNode('/configuration/location[@path=""]/system.webServer/modules')
             if ($parent) {

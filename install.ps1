@@ -19,6 +19,11 @@ $source64 = '\System32\inetsrv'
 
 $schema = '\config\schema\cors_schema.xml'
 $module = '\iiscors.dll'
+$sectionName = 'cors'
+$globalModuleName = 'CorsModule'
+$globalModuleFileName = "%IIS_BIN%$module"
+$tempDirPattern = 'IISCORS-{0:x}\'
+$useLessMsi = $false # no need to use lessmsi to extract contents 
 
 function AddSchemaFiles([string]$sourceDir) {
 
@@ -58,35 +63,52 @@ function AddModuleFiles([string]$sourceDir) {
     }
 }
 
+function ReorganizeFiles([string]$sourceDir) {
+    $lessMsiSource = Join-Path $sourceDir 'SourceDir'
+    Move-Item $lessMsiSource "$sourceDir\..\install-bak"
+    Remove-Item $sourceDir -Recurse
+    Move-Item "$sourceDir\..\install-bak" $sourceDir
+    $file32 = $sourceDir + 'inetsrv' + "$module.duplicate1"
+    $target32 = $sourceDir + $source32 + $module
+    $file64 = $sourceDir + 'inetsrv' + $module
+    $target64 = $sourceDir + $source64 + $module
+    $folder32 = Split-Path $target32
+    New-Item $folder32 -ItemType Directory > $null
+    $folder64 = Split-Path $target64
+    New-Item $folder64 -ItemType Directory > $null
+    Move-Item $file32 $target32 -Force
+    Move-Item $file64 $target64 -Force
+}
+
 function PatchConfigFile([string]$source) {
     if (Test-Path $source) {
         [xml]$xmlDoc = Get-Content $source
-        $existing = $xmlDoc.SelectSingleNode('/configuration/configSections/sectionGroup[@name="system.webServer"]/section[@name="cors"]')
+        $existing = $xmlDoc.SelectSingleNode("/configuration/configSections/sectionGroup[@name=`"system.webServer`"]/section[@name=`"$sectionName`"]")
         if ($existing) {
-            Write-Host 'Section cors already registered.'
+            Write-Host "Section $sectionName already registered."
         } else {
             $parent = $xmlDoc.SelectSingleNode('/configuration/configSections/sectionGroup[@name="system.webServer"]')
             if ($parent) {
                 $newSection = $parent.section[0].Clone()
-                $newSection.name = 'cors'
+                $newSection.name = $sectionName
                 $newSection.overrideModeDefault = "Allow"
                 $parent.AppendChild($newSection) | Out-Null
                 $xmlDoc.Save($source)
-                Write-Host 'Added section cors.'
+                Write-Host "Added section $sectionName."
             } else {
                 Write-Warning 'Invalid config file.'
             }
         }
 
-        $global = $xmlDoc.SelectSingleNode('/configuration/system.webServer/globalModules/add[@name="CorsModule"]')
+        $global = $xmlDoc.SelectSingleNode("/configuration/system.webServer/globalModules/add[@name=`"$globalModuleName`"]")
         if ($global) {
             Write-Host 'Global module already registered.'
         } else {
             $parent = $xmlDoc.SelectSingleNode('/configuration/system.webServer/globalModules')
             if ($parent) {
                 $newModule = $parent.add[0].Clone()
-                $newModule.name = 'CorsModule'
-                $newModule.image = '%IIS_BIN%\iiscors.dll'
+                $newModule.name = $globalModuleName
+                $newModule.image = $globalModuleFileName
                 $parent.AppendChild($newModule) | Out-Null
                 $xmlDoc.Save($source)
                 Write-Host 'Added global module.'
@@ -95,14 +117,14 @@ function PatchConfigFile([string]$source) {
             }
         }
 
-        $module = $xmlDoc.SelectSingleNode('/configuration/location[@path=""]/system.webServer/modules/add[@name="CorsModule"]')
+        $module = $xmlDoc.SelectSingleNode("/configuration/location[@path=`"`"]/system.webServer/modules/add[@name=`"$globalModuleName`"]")
         if ($module) {
             Write-Host 'Module already registered.'
         } else {
             $parent = $xmlDoc.SelectSingleNode('/configuration/location[@path=""]/system.webServer/modules')
             if ($parent) {
                 $newModule = $parent.add[0].Clone()
-                $newModule.name = 'CorsModule'
+                $newModule.name = $globalModuleName
                 $newModule.lockItem = 'true'
                 $parent.AppendChild($newModule) | Out-Null
                 $xmlDoc.Save($source)
@@ -118,13 +140,27 @@ function PatchConfigFile([string]$source) {
 
 if ($msiFile) {
     if (!(Test-Path $msiFile)) {
-        Write-Error "Çannot find MSI package $msiFile. Exit."
+        Write-Error "Cannot find MSI package $msiFile. Exit."
         exit 1
     }
     $tempPath = [System.IO.Path]::GetTempPath()
-    $tempDirName = 'IISCORS-{0:x}' -f (Get-Random)
+    $tempDirName = $tempDirPattern -f (Get-Random)
     $tempDirPath = Join-Path $tempPath $tempDirName
-    Start-Process msiexec "/a `"$msiFile`" /qn TARGETDIR=`"$tempDirPath`"" -Wait
+    if ($useLessMsi) {
+        try {
+            & lessmsi x "$msiFile" "$tempDirPath" > $null 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "lessmsi command encountered an error with exit code: $LASTEXITCODE"
+                exit 1
+            }
+        } catch {
+            Write-Host "lessmsi command encountered an error: $($_.Exception.Message)"
+            exit 1
+        }
+        ReorganizeFiles($tempDirPath)
+    } else {
+        & msiexec /a "$msiFile" /qn TARGETDIR="$tempDirPath"
+    }
     $schemaSource = Join-Path $tempDirPath 'inetsrv'
     $moduleSource = $tempDirPath
 } else {
