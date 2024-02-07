@@ -23,7 +23,7 @@ $sectionName = 'cors'
 $globalModuleName = 'CorsModule'
 $globalModuleFileName = "%IIS_BIN%$module"
 $tempDirPattern = 'IISCORS-{0:x}\'
-$useLessMsi = $false # no need to use lessmsi to extract contents 
+$useLessMsi = $true # use lessmsi to extract contents so that IIS doesn't need to be installed.
 
 function AddSchemaFiles([string]$sourceDir) {
 
@@ -37,7 +37,7 @@ function AddSchemaFiles([string]$sourceDir) {
         Copy-Item $source -Destination $schema64
         Write-Host 'Added schema 64 bit.'
     } else {
-        Write-Warning 'Cannot find the original schema.'
+        Write-Warning "Cannot find the original schema: $source"
     }
 }
 
@@ -52,32 +52,15 @@ function AddModuleFiles([string]$sourceDir) {
         Copy-Item $sourceModule32 -Destination $module32
         Write-Host 'Added module 32 bit.'
     } else {
-        Write-Warning 'Cannot find module 32 bit.'
+        Write-Warning "Cannot find module 32 bit: $sourceModule32"
     }
 
     if (Test-Path $sourceModule64) {
         Copy-Item $sourceModule64 -Destination $module64
         Write-Host 'Added module 64 bit.'
     } else {
-        Write-Warning 'Cannot find module 64 bit.'
+        Write-Warning "Cannot find module 64 bit: $sourceModule64"
     }
-}
-
-function ReorganizeFiles([string]$sourceDir) {
-    $lessMsiSource = Join-Path $sourceDir 'SourceDir'
-    Move-Item $lessMsiSource "$sourceDir\..\install-bak"
-    Remove-Item $sourceDir -Recurse
-    Move-Item "$sourceDir\..\install-bak" $sourceDir
-    $file32 = $sourceDir + 'inetsrv' + "$module.duplicate1"
-    $target32 = $sourceDir + $source32 + $module
-    $file64 = $sourceDir + 'inetsrv' + $module
-    $target64 = $sourceDir + $source64 + $module
-    $folder32 = Split-Path $target32
-    New-Item $folder32 -ItemType Directory > $null
-    $folder64 = Split-Path $target64
-    New-Item $folder64 -ItemType Directory > $null
-    Move-Item $file32 $target32 -Force
-    Move-Item $file64 $target64 -Force
 }
 
 function PatchConfigFile([string]$source) {
@@ -139,13 +122,16 @@ function PatchConfigFile([string]$source) {
 }
 
 if ($msiFile) {
+    $msiFile = Resolve-Path $msiFile
     if (!(Test-Path $msiFile)) {
         Write-Error "Cannot find MSI package $msiFile. Exit."
         exit 1
     }
+
     $tempPath = [System.IO.Path]::GetTempPath()
     $tempDirName = $tempDirPattern -f (Get-Random)
     $tempDirPath = Join-Path $tempPath $tempDirName
+    Write-Debug "Extract files from $msiFile to $tempDirPath."
     if ($useLessMsi) {
         try {
             & lessmsi x "$msiFile" "$tempDirPath" > $null 2>&1
@@ -157,7 +143,8 @@ if ($msiFile) {
             Write-Host "lessmsi command encountered an error: $($_.Exception.Message)"
             exit 1
         }
-        ReorganizeFiles($tempDirPath)
+
+        $tempDirPath = Join-Path $tempDirPath 'SourceDir' # required for lessmsi
     } else {
         & msiexec /a "$msiFile" /qn TARGETDIR="$tempDirPath"
     }
